@@ -210,6 +210,8 @@ const defaultCenter = {
   lng: -74.0060
 };
 
+console.log('API Key:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 'Key exists' : 'No key found');
+
 function MapWithRoutes() {
   const [source, setSource] = useState('');
   const [destination, setDestination] = useState('');
@@ -367,8 +369,14 @@ function MapWithRoutes() {
     }
   }, [source, destination, maxFun]);
 
-  if (loadError) return <div>Error loading maps</div>;
-  if (!isLoaded) return <div>Loading maps...</div>;
+  if (loadError) {
+    console.error('Maps load error:', loadError);
+    return <div>Error loading maps: {loadError.message}</div>;
+  }
+
+  if (!isLoaded) {
+    return <div>Loading maps...</div>;
+  }
 
   return (
     <Container>

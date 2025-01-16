@@ -16,15 +16,20 @@ const Header = styled.header`
 `;
 
 function App() {
+  console.log('App rendering');
   return (
     <Router>
       <AppContainer>
         <Header>
           <h1>Fun Route Finder 🎉</h1>
         </Header>
-        <Routes>
-          <Route path="/" element={<MapWithRoutes />} />
-        </Routes>
+        <div style={{ flex: 1, position: 'relative' }}>
+          <Routes>
+            <Route path="/" element={<MapWithRoutes />} />
+            <Route path="/fun-routes" element={<MapWithRoutes />} />
+            <Route path="/fun-routes/*" element={<MapWithRoutes />} />
+          </Routes>
+        </div>
       </AppContainer>
     </Router>
   );
