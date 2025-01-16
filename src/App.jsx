@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import styled from '@emotion/styled';
 import MapWithRoutes from './components/MapWithRoutes';
 
@@ -16,7 +16,6 @@ const Header = styled.header`
 `;
 
 function App() {
-  console.log('App rendering');
   return (
     <Router>
       <AppContainer>
@@ -26,8 +25,6 @@ function App() {
         <div style={{ flex: 1, position: 'relative' }}>
           <Routes>
             <Route path="/" element={<MapWithRoutes />} />
-            <Route path="/fun-routes" element={<MapWithRoutes />} />
-            <Route path="/fun-routes/*" element={<MapWithRoutes />} />
           </Routes>
         </div>
       </AppContainer>
