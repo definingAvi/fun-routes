@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from 'react';
-import { useLoadScript, GoogleMap, DirectionsRenderer } from '@react-google-maps/api';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { GoogleMap, DirectionsRenderer, useLoadScript } from '@react-google-maps/api';
 import styled from '@emotion/styled';
 import PlacesAutocomplete from './PlacesAutocomplete';
 
@@ -10,9 +10,8 @@ const Container = styled.div`
 
 const Sidebar = styled.div`
   width: 400px;
-  background: white;
   padding: 20px;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  background: #f8f9fa;
   overflow-y: auto;
 `;
 
@@ -20,299 +19,438 @@ const MapContainer = styled.div`
   flex: 1;
 `;
 
-const Title = styled.h2`
-  color: #2c3e50;
-  margin-bottom: 20px;
-`;
-
-const InputGroup = styled.div`
-  margin-bottom: 20px;
-  
-  label {
-    display: block;
-    margin-bottom: 8px;
-    color: #34495e;
-    font-weight: bold;
-  }
-`;
-
-const Button = styled.button`
-  background: #2c3e50;
-  color: white;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  width: 100%;
-  font-size: 1rem;
-  margin: 20px 0;
-
-  &:hover {
-    background: #34495e;
-  }
-
-  &:disabled {
-    background: #95a5a6;
-    cursor: not-allowed;
-  }
-`;
-
-const RouteInfo = styled.div`
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 20px;
-  margin-top: 20px;
-`;
-
-const ScenicRatingInfo = styled.div`
-  margin-top: 20px;
-  padding: 20px;
-  background: #e8f4f8;
-  border-radius: 8px;
-  
-  h3 {
-    color: #2c3e50;
-    margin-bottom: 10px;
-  }
-
-  ul {
-    margin: 10px 0;
-    padding-left: 20px;
-  }
-
-  li {
-    margin: 5px 0;
-  }
-`;
-
-const InfoItem = styled.div`
-  margin: 10px 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  
-  svg {
-    width: 20px;
-    height: 20px;
-    color: #2c3e50;
-  }
-`;
-
-const CheckboxContainer = styled.div`
-  margin: 15px 0;
-  padding: 15px;
-  background: #f0f7ff;
-  border-radius: 8px;
-  border: 1px solid #cce0ff;
-`;
-
-const Checkbox = styled.label`
+const Title = styled.h1`
+  color: #1976d2;
+  margin-bottom: 30px;
+  font-size: 1.8em;
   display: flex;
   align-items: center;
   gap: 10px;
-  cursor: pointer;
-  
-  input {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-  }
 
-  .tooltip {
-    color: #666;
-    font-size: 0.9rem;
-    margin-top: 5px;
+  span {
+    font-size: 1.2em;
   }
 `;
 
-const WaypointInfo = styled.div`
-  margin-top: 15px;
-  padding: 15px;
-  background: #fff3e0;
-  border-radius: 8px;
-  border-left: 4px solid #ff9800;
-  max-height: 50vh;
-  overflow-y: auto;
+const InputGroup = styled.div`
+  margin-bottom: 15px;
+`;
+
+const Button = styled.button`
+  width: 100%;
+  padding: 10px;
+  background: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  &:disabled {
+    background: #95a5a6;
+  }
+`;
+
+const RouteCard = styled.div`
+  margin-top: 20px;
+  padding: 20px;
+  background: linear-gradient(145deg, #e3f2fd 0%, #bbdefb 100%);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(25, 118, 210, 0.1);
+  transform: translateY(0);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(25, 118, 210, 0.2);
+  }
+`;
+
+const RouteHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid rgba(25, 118, 210, 0.2);
 
   h4 {
-    color: #f57c00;
-    margin-bottom: 10px;
+    margin: 0;
+    color: #1565c0;
+    font-size: 1.4em;
+    font-weight: 600;
+  }
+
+  .emoji {
+    font-size: 1.6em;
+  }
+`;
+
+const RouteSection = styled.div`
+  position: relative;
+  margin-top: 20px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  border-left: 4px solid #1976d2;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  transform: translateX(0);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+
+  &:hover {
+    background: white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transform: translateX(4px);
+  }
+`;
+
+const FeatureTag = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin: 4px;
+  background: ${props => props.gradient || 'linear-gradient(135deg, #bbdefb 0%, #90caf9 100%)'};
+  color: #1565c0;
+  border-radius: 20px;
+  font-size: 0.85em;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(25, 118, 210, 0.1);
+  transform: translateY(0);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(25, 118, 210, 0.2);
+  }
+
+  .icon {
+    font-size: 1.1em;
+  }
+`;
+
+const DrivingTip = styled.div`
+  margin-top: 15px;
+  padding: 15px;
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+  border-radius: 10px;
+  font-style: italic;
+  color: #e65100;
+  font-size: 0.9em;
+  box-shadow: 0 2px 8px rgba(230, 81, 0, 0.1);
+  transform: translateY(0);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(230, 81, 0, 0.15);
+  }
+`;
+
+const RouteStats = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 15px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(5px);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+
+  .stat {
     display: flex;
     align-items: center;
     gap: 8px;
-    position: sticky;
-    top: 0;
-    background: #fff3e0;
-    padding: 5px 0;
-  }
-
-  .timeline {
-    position: relative;
-    padding-left: 20px;
-    
-    &::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: #ff9800;
-    }
-  }
-
-  .stop {
-    margin: 15px 0;
-    padding: 15px;
+    padding: 8px 12px;
     background: white;
-    border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    position: relative;
+    border-radius: 8px;
+    font-size: 0.9em;
+    font-weight: 500;
+    color: #1976d2;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transform: translateY(0);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: default;
 
-    &::before {
-      content: '';
-      position: absolute;
-      left: -24px;
-      top: 50%;
-      width: 10px;
-      height: 10px;
-      background: #ff9800;
-      border-radius: 50%;
-      transform: translateY(-50%);
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
 
-    .stop-name {
-      font-weight: bold;
-      color: #2c3e50;
-      margin-bottom: 5px;
-    }
-
-    .stop-type {
-      font-size: 0.9em;
-      color: #666;
-      margin-bottom: 5px;
-    }
-
-    .stop-rating {
-      color: #f57c00;
-      margin-bottom: 5px;
-    }
-
-    .stop-status {
-      font-size: 0.9em;
-      color: ${props => props.isOpen ? '#4caf50' : '#f44336'};
+    .icon {
+      font-size: 1.2em;
     }
   }
 `;
 
-const defaultCenter = {
-  lat: 40.7128,
-  lng: -74.0060
-};
+const ProTipsCard = styled.div`
+  margin-top: 20px;
+  padding: 20px;
+  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+  color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(25, 118, 210, 0.2);
 
-console.log('API Key:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 'Key exists' : 'No key found');
+  h5 {
+    margin: 0 0 15px 0;
+    font-size: 1.1em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 20px;
+    
+    li {
+      margin: 8px 0;
+      font-size: 0.9em;
+      line-height: 1.4;
+      
+      &::marker {
+        color: #90caf9;
+      }
+    }
+  }
+`;
+
+// Add a new styled component for the weight selector
+const WeightSelector = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: rgba(25, 118, 210, 0.05);
+  border-radius: 8px;
+
+  label {
+    font-size: 0.9em;
+    color: #1976d2;
+  }
+
+  select {
+    padding: 4px 8px;
+    border: 1px solid #90caf9;
+    border-radius: 4px;
+    background: white;
+    color: #1976d2;
+    cursor: pointer;
+
+    &:hover {
+      border-color: #1976d2;
+    }
+  }
+`;
+
+const SCENIC_QUERIES = [
+  'scenic overlook',
+  'vista point',
+  'scenic viewpoint',
+  'mountain pass',
+  'scenic drive',
+  'lookout point'
+];
 
 function MapWithRoutes() {
-  const [source, setSource] = useState('');
-  const [destination, setDestination] = useState('');
-  const [directions, setDirections] = useState(null);
-  const [routeInfo, setRouteInfo] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [maxFun, setMaxFun] = useState(false);
-  const [waypoints, setWaypoints] = useState([]);
-  
-  const mapRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
     libraries: ['places'],
   });
 
+  const [source, setSource] = useState('');
+  const [destination, setDestination] = useState('');
+  const [directions, setDirections] = useState(null);
+  const [routeInfo, setRouteInfo] = useState(null);
+  const [waypoints, setWaypoints] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+
+  // Add state for feature weights
+  const [weights, setWeights] = useState({
+    'Hairpin Turns': 2,
+    'Elevation Changes': 2,
+    'Scenic Views': 2,
+    'Switchbacks': 2,
+    'Long Sweepers': 2,
+    'Low Traffic': 2,
+    'Forest Route': 2,
+    'Mountain Road': 2
+  });
+
+  // Add maximum detour time state (in minutes)
+  const [maxDetourTime] = useState(120); // 2 hours default
+
   const onMapLoad = useCallback((map) => {
     mapInstanceRef.current = map;
   }, []);
 
-  const calculateFunRating = (route) => {
-    const steps = route.legs[0].steps.length;
-    const distance = route.legs[0].distance.value;
-    const duration = route.legs[0].duration.value;
-    
-    const avgSpeed = distance / duration;
-    const stepDensity = steps / (distance / 1000);
-    
-    let rating = Math.min(Math.round(stepDensity / 2), 5);
-    if (avgSpeed < 40) rating = Math.min(rating + 1, 5);
-    
-    return rating;
-  };
-
   const getFunWaypoints = async (startLoc, endLoc) => {
     if (!mapInstanceRef.current) return [];
 
-    const service = new google.maps.places.PlacesService(mapInstanceRef.current);
-    const directionsService = new google.maps.DirectionsService();
-
     try {
-      // Single initial route calculation
+      const service = new google.maps.places.PlacesService(mapInstanceRef.current);
+      const directionsService = new google.maps.DirectionsService();
+
       const initialRoute = await directionsService.route({
         origin: startLoc,
         destination: endLoc,
         travelMode: google.maps.TravelMode.DRIVING,
       });
 
-      const totalDuration = initialRoute.routes[0].legs[0].duration.value;
-      const numberOfStops = Math.min(Math.max(Math.floor(totalDuration / (90 * 60)), 1), 3);
-
-      const path = initialRoute.routes[0].overview_path;
-      const stopPoints = [];
-
-      // Calculate all stop points at once
-      for (let i = 1; i <= numberOfStops; i++) {
-        const pointIndex = Math.floor((path.length * i) / (numberOfStops + 1));
-        stopPoints.push(path[pointIndex]);
+      if (!initialRoute.routes || initialRoute.routes.length === 0) {
+        throw new Error('No initial route found');
       }
 
-      // Batch process nearby search
-      const searchPromises = stopPoints.map((point, index) => 
-        new Promise((resolve) => {
-          service.nearbySearch({
-            location: point,
-            radius: '3000', // Reduced radius
-            rankBy: google.maps.places.RankBy.RATING,
-            type: ['tourist_attraction', 'amusement_park', 'park'] // Reduced types
-          }, (results, status) => {
-            if (status === google.maps.places.PlacesServiceStatus.OK && results?.[0]) {
-              resolve({
-                ...results[0],
-                location: results[0].geometry.location,
-                distanceFromStart: `Stop ${index + 1}`
-              });
-            } else {
-              resolve(null);
-            }
-          });
-        })
+      const path = initialRoute.routes[0].overview_path;
+      const totalDistance = initialRoute.routes[0].legs[0].distance.value;
+      
+      const numberOfStops = Math.min(
+        Math.max(Math.floor(totalDistance / 40000), 2),
+        4
       );
 
-      const places = await Promise.all(searchPromises);
-      const validPlaces = places.filter(place => place !== null);
-      
-      setWaypoints(validPlaces);
-      
-      return validPlaces.map(place => ({
-        location: place.location,
+      console.log(`Searching for ${numberOfStops} scenic locations...`);
+
+      const waypoints = [];
+      for (let i = 1; i <= numberOfStops; i++) {
+        const pointIndex = Math.floor((path.length * i) / (numberOfStops + 1));
+        const searchPoint = path[pointIndex];
+        
+        // Try multiple queries for each point
+        let foundPlace = null;
+        for (const query of SCENIC_QUERIES) {
+          if (foundPlace) break;
+
+          const searchPromise = new Promise((resolve) => {
+            const request = {
+              query: query,
+              location: {
+                lat: searchPoint.lat(),
+                lng: searchPoint.lng()
+              },
+              radius: 20000,
+              rankBy: google.maps.places.RankBy.RATING
+            };
+
+            service.textSearch(request, (results, status) => {
+              if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
+                // Filter results for places with actual names
+                const validResults = results.filter(place => 
+                  place.name && 
+                  !place.name.toLowerCase().includes('unnamed') &&
+                  !place.name.toLowerCase().includes('point') &&
+                  place.rating
+                );
+
+                if (validResults.length > 0) {
+                  resolve(validResults[0]);
+                } else {
+                  resolve(null);
+                }
+              } else {
+                resolve(null);
+              }
+            });
+          });
+
+          const result = await searchPromise;
+          if (result) {
+            foundPlace = {
+              location: result.geometry.location,
+              name: result.name,
+              rating: result.rating || 4.0,
+              distanceFromStart: `${Math.round((i / (numberOfStops + 1)) * 100)}%`,
+              placeId: result.place_id
+            };
+          }
+        }
+
+        // If no specific place found, use fallback
+        if (!foundPlace) {
+          foundPlace = {
+            location: searchPoint,
+            name: `Scenic Point ${i}`,
+            rating: 4.0,
+            distanceFromStart: `${Math.round((i / (numberOfStops + 1)) * 100)}%`
+          };
+        }
+
+        console.log(`Found waypoint: ${foundPlace.name}`);
+        waypoints.push(foundPlace);
+      }
+
+      return waypoints.map(wp => ({
+        location: wp.location,
         stopover: true
       }));
 
     } catch (error) {
-      console.error('Error finding fun waypoints:', error);
-      setWaypoints([]);
+      console.warn('Error in getFunWaypoints:', error);
       return [];
     }
   };
 
-  const calculateFun = useCallback(async () => {
+  const calculateFunRating = useCallback((route) => {
+    try {
+      const steps = route.legs.reduce((sum, leg) => sum + leg.steps.length, 0);
+      const distance = route.legs.reduce((sum, leg) => sum + leg.distance.value, 0);
+      const duration = route.legs.reduce((sum, leg) => sum + leg.duration.value, 0);
+      
+      // More steps per km indicates more turns/complexity
+      const complexity = steps / (distance / 1000);
+      // Average speed (lower is better, indicates twisty roads)
+      const avgSpeed = distance / duration;
+      
+      let rating = Math.min(Math.round(complexity / 1.5), 5);
+      if (avgSpeed < 50) rating = Math.min(rating + 1, 5); // Bonus for slower, twistier routes
+      if (waypoints.length > 0) rating = Math.min(rating + waypoints.length, 5);
+      
+      return Math.max(rating, 3); // Minimum rating of 3
+    } catch (error) {
+      console.warn('Error calculating fun rating:', error);
+      return 3; // Default rating if calculation fails
+    }
+  }, [waypoints]);
+
+  const calculateRouteStats = useCallback((route) => {
+    try {
+      const totalDistance = route.legs.reduce((sum, leg) => sum + leg.distance.value, 0);
+      const totalDuration = route.legs.reduce((sum, leg) => sum + leg.duration.value, 0);
+      const avgSpeed = totalDistance / totalDuration;
+      const turns = route.legs.reduce((sum, leg) => 
+        sum + leg.steps.filter(step => 
+          step.maneuver && ['turn', 'roundabout'].some(type => 
+            step.maneuver.includes(type)
+          )
+        ).length, 0);
+
+      return {
+        distance: route.legs[0].distance.text,
+        duration: route.legs[0].duration.text,
+        avgSpeed: Math.round(avgSpeed * 3.6), // Convert to km/h
+        turns,
+        elevation: Math.round(100 + Math.random() * 400),
+        funRating: calculateFunRating(route),
+        detourTime: waypoints.reduce((sum, wp) => sum + (wp.estimatedDetour || 0), 0)
+      };
+    } catch (error) {
+      console.warn('Error calculating route stats:', error);
+      return {
+        distance: route.legs[0].distance.text,
+        duration: route.legs[0].duration.text,
+        funRating: 3
+      };
+    }
+  }, [calculateFunRating, waypoints]);
+
+  const calculateRoute = useCallback(async () => {
     if (!source || !destination) return;
 
     setLoading(true);
@@ -322,60 +460,144 @@ function MapWithRoutes() {
       let routeOptions = {
         origin: source,
         destination: destination,
-        provideRouteAlternatives: true,
         travelMode: google.maps.TravelMode.DRIVING,
+        provideRouteAlternatives: true
       };
 
-      if (maxFun) {
-        const waypoints = await getFunWaypoints(source, destination);
-        if (waypoints.length > 0) {
-          routeOptions.waypoints = waypoints;
-          routeOptions.optimizeWaypoints = true;
-        }
+      // Always try to get fun waypoints now
+      const funWaypoints = await getFunWaypoints(source, destination);
+      if (funWaypoints && funWaypoints.length > 0) {
+        routeOptions.waypoints = funWaypoints;
+        routeOptions.optimizeWaypoints = false;
+        setWaypoints(funWaypoints.map((wp, index) => ({
+          ...wp,
+          name: `Scenic Point ${index + 1}`,
+          type: 'scenic_point',
+          rating: 4.0,
+          distanceFromStart: `${Math.round(((index + 1) / (funWaypoints.length + 1)) * 100)}%`
+        })));
       }
 
       const result = await directionsService.route(routeOptions);
-      const routes = result.routes;
-      let funRoute = routes[0];
+      setDirections(result);
       
-      if (routes.length > 1) {
-        funRoute = routes.reduce((prev, current) => {
-          return prev.legs[0].steps.length > current.legs[0].steps.length ? prev : current;
-        });
-      }
+      const route = result.routes[0];
+      const stats = calculateRouteStats(route);
+      setRouteInfo(stats);
 
-      const totalDistance = funRoute.legs.reduce((sum, leg) => sum + leg.distance.value, 0);
-      const totalDuration = funRoute.legs.reduce((sum, leg) => sum + leg.duration.value, 0);
-      const totalSteps = funRoute.legs.reduce((sum, leg) => sum + leg.steps.length, 0);
-
-      let funRating = calculateFunRating(funRoute);
-      if (maxFun && routeOptions.waypoints) {
-        funRating = Math.min(funRating + routeOptions.waypoints.length, 5);
-      }
-
-      setDirections({ ...result, routes: [funRoute] });
-      setRouteInfo({
-        distance: `${Math.round(totalDistance / 1000)} km`,
-        duration: `${Math.round(totalDuration / 60)} mins`,
-        steps: totalSteps,
-        funRating,
-        hasDetours: maxFun && routeOptions.waypoints?.length > 0
-      });
     } catch (error) {
-      console.error('Detailed routing error:', error);
-      alert('Could not calculate route. Please check your inputs.');
+      console.error('Route calculation error:', error);
+      alert('Could not calculate route. Please try different locations.');
+      setDirections(null);
+      setRouteInfo(null);
+      setWaypoints([]);
     } finally {
       setLoading(false);
     }
-  }, [source, destination, maxFun]);
+  }, [source, destination]);
+
+  const generateDrivingFeatures = useCallback((place) => {
+    const possibleFeatures = [
+      { icon: '↪️', text: 'Hairpin Turns' },
+      { icon: '⛰️', text: 'Elevation Changes' },
+      { icon: '🌄', text: 'Scenic Views' },
+      { icon: '🔄', text: 'Switchbacks' },
+      { icon: '📏', text: 'Long Sweepers' },
+      { icon: '🚥', text: 'Low Traffic' },
+      { icon: '🌲', text: 'Forest Route' },
+      { icon: '🏔️', text: 'Mountain Road' }
+    ];
+
+    // Select 3-4 random features
+    return possibleFeatures
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3 + Math.floor(Math.random() * 2));
+  }, []);
+
+  const generateDrivingTip = useCallback((place) => {
+    const tips = [
+      "Perfect for early morning drives with minimal traffic",
+      "Watch for cyclists on weekends",
+      "Great sunset views along this section",
+      "Multiple photo opportunities at viewpoints",
+      "Challenging corners - take it easy first time",
+      "Popular among local driving enthusiasts",
+      "Road surface is well maintained",
+      "Good coffee stop nearby for a break"
+    ];
+
+    return "💡 " + tips[Math.floor(Math.random() * tips.length)];
+  }, []);
+
+  const estimateSegmentLength = (place) => {
+    // Simulate segment length based on position
+    return Math.floor(10 + Math.random() * 15);
+  };
+
+  const estimateElevationChange = (place) => {
+    // Simulate elevation changes
+    return Math.floor(100 + Math.random() * 400);
+  };
+
+  // Update getFeatureGradient to use weights
+  const getFeatureGradient = useCallback((featureType) => {
+    const weight = weights[featureType] || 2;
+    const gradients = {
+      'Hairpin Turns': {
+        1: '#bbdefb 0%, #90caf9 100%',
+        2: '#90caf9 0%, #42a5f5 100%',
+        3: '#42a5f5 0%, #1976d2 100%'
+      },
+      'Elevation Changes': {
+        1: '#c8e6c9 0%, #a5d6a7 100%',
+        2: '#a5d6a7 0%, #66bb6a 100%',
+        3: '#66bb6a 0%, #388e3c 100%'
+      },
+      'Scenic Views': {
+        1: '#fff3e0 0%, #ffe0b2 100%',
+        2: '#ffe0b2 0%, #ffb74d 100%',
+        3: '#ffb74d 0%, #f57c00 100%'
+      },
+      'Switchbacks': {
+        1: '#e1bee7 0%, #ce93d8 100%',
+        2: '#ce93d8 0%, #ab47bc 100%',
+        3: '#ab47bc 0%, #7b1fa2 100%'
+      },
+      'Long Sweepers': {
+        1: '#b3e5fc 0%, #81d4fa 100%',
+        2: '#81d4fa 0%, #29b6f6 100%',
+        3: '#29b6f6 0%, #0288d1 100%'
+      },
+      'Low Traffic': {
+        1: '#dcedc8 0%, #c5e1a5 100%',
+        2: '#c5e1a5 0%, #aed581 100%',
+        3: '#aed581 0%, #689f38 100%'
+      },
+      'Forest Route': {
+        1: '#c8e6c9 0%, #a5d6a7 100%',
+        2: '#a5d6a7 0%, #66bb6a 100%',
+        3: '#66bb6a 0%, #388e3c 100%'
+      },
+      'Mountain Road': {
+        1: '#d1c4e9 0%, #b39ddb 100%',
+        2: '#b39ddb 0%, #7e57c2 100%',
+        3: '#7e57c2 0%, #512da8 100%'
+      }
+    };
+
+    return gradients[featureType]?.[weight] || '#bbdefb 0%, #90caf9 100%';
+  }, [weights]);
+
+  useEffect(() => {
+    document.title = 'Fun Routes';
+  }, []);
 
   if (loadError) {
-    console.error('Maps load error:', loadError);
-    return <div>Error loading maps: {loadError.message}</div>;
+    return <div>Error loading maps</div>;
   }
 
   if (!isLoaded) {
-    return <div>Loading maps...</div>;
+    return <div>Loading maps</div>;
   }
 
   return (
@@ -401,100 +623,45 @@ function MapWithRoutes() {
           />
         </InputGroup>
 
-        <CheckboxContainer>
-          <Checkbox>
-            <input
-              type="checkbox"
-              checked={maxFun}
-              onChange={(e) => setMaxFun(e.target.checked)}
-            />
-            <div>
-              <div>Maximum Fun Route 🎢</div>
-              <div className="tooltip">
-                Adds exciting detours to interesting places along the way!
-              </div>
-            </div>
-          </Checkbox>
-        </CheckboxContainer>
-
         <Button 
-          onClick={calculateFun}
+          onClick={calculateRoute}
           disabled={loading || !source || !destination}
         >
-          {loading ? 'Calculating...' : 'Find Fun Route'}
+          {loading ? 'Calculating...' : 'Find Route'}
         </Button>
-        
-        {routeInfo && (
-          <>
-            <RouteInfo>
-              <InfoItem>
-                <span>🛣️ Distance:</span> {routeInfo.distance}
-              </InfoItem>
-              <InfoItem>
-                <span>⏱️ Duration:</span> {routeInfo.duration}
-              </InfoItem>
-              <InfoItem>
-                <span>🎈 Fun Rating:</span> {routeInfo.funRating}/5
-                {routeInfo.hasDetours && ' (Includes fun detours!)'}
-              </InfoItem>
-            </RouteInfo>
 
-            {maxFun && waypoints.length > 0 && (
-              <WaypointInfo>
-                <h4>
-                  <span>🎯 Fun Stops Along the Way</span>
-                </h4>
-                <div className="timeline">
-                  {waypoints.map((place, index) => (
-                    <div key={index} className="stop">
-                      <div className="stop-name">
-                        {index + 1}. {place.name}
-                      </div>
-                      <div className="stop-type">
-                        {place.types?.[0]?.split('_').map(word => 
-                          word.charAt(0).toUpperCase() + word.slice(1)
-                        ).join(' ')}
-                      </div>
-                      {place.rating && (
-                        <div className="stop-rating">
-                          ⭐ {place.rating} / 5
-                        </div>
-                      )}
-                      <div className="stop-distance">
-                        {place.distanceFromStart} into journey
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <p style={{ marginTop: '10px', fontSize: '0.9em', color: '#666' }}>
-                  Stops are spaced approximately 90 minutes apart for optimal fun! 🎉
-                </p>
-              </WaypointInfo>
-            )}
-          </>
+        {routeInfo && (
+          <div style={{ marginTop: '20px' }}>
+            <div>Distance: {routeInfo.distance}</div>
+            <div>Duration: {routeInfo.duration}</div>
+          </div>
         )}
 
-        <ScenicRatingInfo>
-          <h3>How We Calculate Fun Routes</h3>
-          <p>Our fun rating (1-5) is based on several factors:</p>
-          <ul>
-            <li>Number of interesting turns and stops</li>
-            <li>Variety of roads and paths</li>
-            <li>Route adventure level</li>
-            {maxFun && (
-              <li>
-                <strong>Bonus fun stops</strong> - We'll add exciting detours to 
-                highly-rated attractions along your route!
-              </li>
-            )}
-          </ul>
-          <p>A higher rating suggests:</p>
-          <ul>
-            <li>More varied terrain</li>
-            <li>Less boring highway driving</li>
-            <li>More interesting places along the way</li>
-          </ul>
-        </ScenicRatingInfo>
+        {waypoints.length > 0 && (
+          <RouteCard>
+            <RouteHeader>
+              <span className="emoji">🎯</span>
+              <h4>Epic Adventure Route</h4>
+            </RouteHeader>
+            
+            {waypoints.map((place, index) => (
+              <RouteSection key={index}>
+                <div className="place-name">
+                  <span className="number">{index + 1}</span>
+                  {place.name}
+                </div>
+                {place.rating && (
+                  <div className="rating">
+                    ⭐ {place.rating.toFixed(1)} / 5
+                  </div>
+                )}
+                <div className="distance">
+                  {place.distanceFromStart} along the route
+                </div>
+              </RouteSection>
+            ))}
+          </RouteCard>
+        )}
       </Sidebar>
 
       <MapContainer>
@@ -503,7 +670,7 @@ function MapWithRoutes() {
           onLoad={onMapLoad}
           mapContainerStyle={{ width: '100%', height: '100%' }}
           zoom={13}
-          center={{ lat: 40.7128, lng: -74.0060 }} // Default to NYC
+          center={{ lat: 40.7128, lng: -74.0060 }}
           options={{
             zoomControl: true,
             streetViewControl: true,
@@ -515,6 +682,7 @@ function MapWithRoutes() {
             <DirectionsRenderer
               directions={directions}
               options={{
+                suppressMarkers: false,
                 polylineOptions: {
                   strokeColor: '#2c3e50',
                   strokeWeight: 5,
