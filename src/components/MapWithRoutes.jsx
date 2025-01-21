@@ -268,9 +268,8 @@ function MapWithRoutes() {
   const [routeInfo, setRouteInfo] = useState(null);
   const [waypoints, setWaypoints] = useState([]);
   const [loading, setLoading] = useState(false);
-
+  const [map, setMap] = useState(null);
   const mapRef = useRef(null);
-  const mapInstanceRef = useRef(null);
 
   // Add state for feature weights
   const [weights, setWeights] = useState({
@@ -287,15 +286,24 @@ function MapWithRoutes() {
   // Add maximum detour time state (in minutes)
   const [maxDetourTime] = useState(120); // 2 hours default
 
+  const center = {
+    lat: 34.0522,
+    lng: -118.2437
+  };
+
   const onMapLoad = useCallback((map) => {
-    mapInstanceRef.current = map;
+    mapRef.current = map;
+    setMap(map);
   }, []);
 
   const getFunWaypoints = async (startLoc, endLoc) => {
-    if (!mapInstanceRef.current) return [];
+    if (!mapRef.current) {
+      console.error('Map not initialized');
+      return { routeWaypoints: [], displayWaypoints: [] };
+    }
 
     try {
-      const service = new google.maps.places.PlacesService(mapInstanceRef.current);
+      const service = new google.maps.places.PlacesService(mapRef.current);
       const directionsService = new google.maps.DirectionsService();
 
       const initialRoute = await directionsService.route({
@@ -323,7 +331,6 @@ function MapWithRoutes() {
         const pointIndex = Math.floor((path.length * i) / (numberOfStops + 1));
         const searchPoint = path[pointIndex];
         
-        // Try multiple queries for each point
         let foundPlace = null;
         for (const query of SCENIC_QUERIES) {
           if (foundPlace) break;
@@ -341,7 +348,6 @@ function MapWithRoutes() {
 
             service.textSearch(request, (results, status) => {
               if (status === google.maps.places.PlacesServiceStatus.OK && results?.length > 0) {
-                // Filter results for places with actual names
                 const validResults = results.filter(place => 
                   place.name && 
                   !place.name.toLowerCase().includes('unnamed') &&
@@ -372,7 +378,6 @@ function MapWithRoutes() {
           }
         }
 
-        // If no specific place found, use fallback
         if (!foundPlace) {
           foundPlace = {
             location: searchPoint,
@@ -386,14 +391,18 @@ function MapWithRoutes() {
         waypoints.push(foundPlace);
       }
 
-      return waypoints.map(wp => ({
-        location: wp.location,
-        stopover: true
-      }));
+      // Separate route waypoints from display waypoints
+      return {
+        routeWaypoints: waypoints.map(wp => ({
+          location: wp.location,
+          stopover: true
+        })),
+        displayWaypoints: waypoints
+      };
 
     } catch (error) {
       console.warn('Error in getFunWaypoints:', error);
-      return [];
+      return { routeWaypoints: [], displayWaypoints: [] };
     }
   };
 
@@ -454,43 +463,22 @@ function MapWithRoutes() {
     if (!source || !destination) return;
 
     setLoading(true);
-    const directionsService = new google.maps.DirectionsService();
-
     try {
-      let routeOptions = {
+      const { routeWaypoints, displayWaypoints } = await getFunWaypoints(source, destination);
+      
+      const directionsService = new google.maps.DirectionsService();
+      const result = await directionsService.route({
         origin: source,
         destination: destination,
+        waypoints: routeWaypoints, // Use only the route waypoints
         travelMode: google.maps.TravelMode.DRIVING,
-        provideRouteAlternatives: true
-      };
+      });
 
-      // Always try to get fun waypoints now
-      const funWaypoints = await getFunWaypoints(source, destination);
-      if (funWaypoints && funWaypoints.length > 0) {
-        routeOptions.waypoints = funWaypoints;
-        routeOptions.optimizeWaypoints = false;
-        setWaypoints(funWaypoints.map((wp, index) => ({
-          ...wp,
-          name: `Scenic Point ${index + 1}`,
-          type: 'scenic_point',
-          rating: 4.0,
-          distanceFromStart: `${Math.round(((index + 1) / (funWaypoints.length + 1)) * 100)}%`
-        })));
-      }
-
-      const result = await directionsService.route(routeOptions);
       setDirections(result);
-      
-      const route = result.routes[0];
-      const stats = calculateRouteStats(route);
-      setRouteInfo(stats);
-
+      setWaypoints(displayWaypoints); // Use display waypoints for the sidebar
     } catch (error) {
-      console.error('Route calculation error:', error);
+      console.error('Error calculating route:', error);
       alert('Could not calculate route. Please try different locations.');
-      setDirections(null);
-      setRouteInfo(null);
-      setWaypoints([]);
     } finally {
       setLoading(false);
     }
@@ -640,8 +628,8 @@ function MapWithRoutes() {
         {waypoints.length > 0 && (
           <RouteCard>
             <RouteHeader>
-              <span className="emoji">🎯</span>
-              <h4>Epic Adventure Route</h4>
+              <span className="emoji">🏔️</span>
+              <h4>Scenic Mountain Route</h4>
             </RouteHeader>
             
             {waypoints.map((place, index) => (
@@ -652,11 +640,11 @@ function MapWithRoutes() {
                 </div>
                 {place.rating && (
                   <div className="rating">
-                    ⭐ {place.rating.toFixed(1)} / 5
+                    ⭐ {place.rating.toFixed(1)}
                   </div>
                 )}
                 <div className="distance">
-                  {place.distanceFromStart} along the route
+                  {place.distanceFromStart} along route
                 </div>
               </RouteSection>
             ))}
@@ -666,16 +654,16 @@ function MapWithRoutes() {
 
       <MapContainer>
         <GoogleMap
-          ref={mapRef}
+          mapContainerStyle={{
+            width: '100%',
+            height: '100%'
+          }}
+          center={center}
+          zoom={12}
           onLoad={onMapLoad}
-          mapContainerStyle={{ width: '100%', height: '100%' }}
-          zoom={13}
-          center={{ lat: 40.7128, lng: -74.0060 }}
           options={{
-            zoomControl: true,
-            streetViewControl: true,
-            mapTypeControl: true,
-            fullscreenControl: true,
+            streetViewControl: false,
+            mapTypeControl: false,
           }}
         >
           {directions && (
@@ -683,10 +671,7 @@ function MapWithRoutes() {
               directions={directions}
               options={{
                 suppressMarkers: false,
-                polylineOptions: {
-                  strokeColor: '#2c3e50',
-                  strokeWeight: 5,
-                },
+                preserveViewport: false
               }}
             />
           )}
