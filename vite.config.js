@@ -14,7 +14,8 @@ export default defineConfig({
     setupFiles: './src/test/setup.js',
   },
   define: {
-    'process.env': process.env
+    'process.env': process.env,
+    'process.env.VITE_GOOGLE_MAPS_API_KEY': JSON.stringify(process.env.VITE_GOOGLE_MAPS_API_KEY)
   },
   server: {
     port: 5174,
