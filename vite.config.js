@@ -7,7 +7,7 @@ const isGitHubPages = process.env.GITHUB_PAGES === 'true';
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: isGitHubPages ? '/fun-routes/' : '/',
+  base: '/fun-routes/',
   test: {
     globals: true,
     environment: 'jsdom',

@@ -86,21 +86,49 @@ const RouteHeader = styled.div`
 `;
 
 const RouteSection = styled.div`
-  position: relative;
-  margin-top: 20px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 12px;
-  border-left: 4px solid #1976d2;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-  transform: translateX(0);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: default;
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  .place-name {
+    font-weight: 500;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    .letter {
+      background: #1976d2;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9em;
+      font-weight: bold;
+    }
+  }
+  
+  .rating {
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 2px;
+  }
+  
+  .distance {
+    color: #666;
+    font-size: 0.9em;
+  }
 
-  &:hover {
-    background: white;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    transform: translateX(4px);
+  .address {
+    color: #666;
+    font-size: 0.9em;
+    margin-left: 32px;
   }
 `;
 
@@ -576,6 +604,11 @@ function MapWithRoutes() {
     return gradients[featureType]?.[weight] || '#bbdefb 0%, #90caf9 100%';
   }, [weights]);
 
+  // Helper function to get letter marker
+  const getWaypointLetter = (index) => {
+    return String.fromCharCode(65 + index); // 65 is ASCII for 'A'
+  };
+
   useEffect(() => {
     document.title = 'Fun Routes';
   }, []);
@@ -632,10 +665,18 @@ function MapWithRoutes() {
               <h4>Scenic Mountain Route</h4>
             </RouteHeader>
             
+            <RouteSection>
+              <div className="place-name">
+                <span className="letter">A</span>
+                Starting Point
+              </div>
+              <div className="address">{source}</div>
+            </RouteSection>
+
             {waypoints.map((place, index) => (
               <RouteSection key={index}>
                 <div className="place-name">
-                  <span className="number">{index + 1}</span>
+                  <span className="letter">{getWaypointLetter(index + 1)}</span>
                   {place.name}
                 </div>
                 {place.rating && (
@@ -648,6 +689,14 @@ function MapWithRoutes() {
                 </div>
               </RouteSection>
             ))}
+
+            <RouteSection>
+              <div className="place-name">
+                <span className="letter">{getWaypointLetter(waypoints.length + 1)}</span>
+                Destination
+              </div>
+              <div className="address">{destination}</div>
+            </RouteSection>
           </RouteCard>
         )}
       </Sidebar>
